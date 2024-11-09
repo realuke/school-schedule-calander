@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수행평가 일정 알리미</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.8.2/css/pikaday.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { width: 600px; margin: 0 auto; text-align: center; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+        .calendar-header button { background-color: #4CAF50; color: white; border: none; padding: 5px 10px; cursor: pointer; }
+        .calendar { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+        .day { width: 80px; height: 80px; border: 1px solid #ddd; margin: 5px; display: flex; align-items: center; justify-content: center; flex-direction: column; cursor: pointer; }
+        .day.selected { background-color: #add8e6; }
+        .schedule-list { margin-top: 20px; }
+        .schedule-item { display: flex; justify-content: space-between; margin-top: 5px; }
+        .schedule-item button { background-color: #ff4d4d; color: white; border: none; padding: 2px 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>수행평가 일정 관리 페이지</h2>
+    
+    <!-- 현재 월과 연도 표시 및 월 변경 버튼 -->
+    <div class="calendar-header">
+        <button onclick="changeMonth(-1)">&#10094; 이전</button>
+        <span id="currentMonthYear"></span>
+        <button onclick="changeMonth(1)">다음 &#10095;</button>
+    </div>
+
+    <div id="calendar" class="calendar"></div>
+    
+    <!-- Pikaday로 일정 추가 날짜 선택 -->
+    <input type="text" id="datepicker" placeholder="날짜 입력">
+    <input type="text" id="scheduleInput" placeholder="일정 제목 입력">
+    <button onclick="addSchedule()">일정 추가하기</button>
+
+    <h3><span id="selectedDateDisplay">오늘</span>의 일정</h3>
+    <div id="scheduleList" class="schedule-list"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.8.2/pikaday.min.js"></script>
+<script>
+    let currentDate = new Date();
+    const calendar = document.getElementById('calendar');
+    let selectedDate = formatDate(currentDate); // 초기 선택 날짜 포맷을 YYYY-MM-DD로 설정
+    let schedules = {};
+
+    // Pikaday 설정
+    const picker = new Pikaday({
+        field: document.getElementById('datepicker'),
+        format: 'YYYY-MM-DD',
+        toString(date) {
+            return moment(date).format('YYYY-MM-DD'); // Moment.js로 포맷 설정
+        },
+        parse(dateString) {
+            return moment(dateString, 'YYYY-MM-DD').toDate(); // 문자열을 Date 객체로 변환
+        }
+    });
+
+    // JSON 파일에서 일정 로드
+    async function loadSchedules() {
+        const response = await fetch('/api/schedules');
+        if (response.ok) {
+            schedules = await response.json();
+            displayCalendar();
+            displaySchedules();
+        }
+    }
+
+    // 현재 월과 연도를 표시
+    function displayCurrentMonthYear() {
+        const monthYear = currentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+        document.getElementById('currentMonthYear').textContent = monthYear;
+    }
+
+    // 캘린더 표시
+    function displayCalendar() {
+        displayCurrentMonthYear();
+        calendar.innerHTML = '';
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDayOfMonth = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 1; i <= firstDayOfMonth + daysInMonth; i++) {
+            const dayElement = document.createElement('div');
+            if (i > firstDayOfMonth) {
+                const day = i - firstDayOfMonth;
+                const date = new Date(year, month, day);
+                const dateString = formatDate(date);
+                dayElement.className = 'day' + (dateString === selectedDate ? ' selected' : '');
+                dayElement.innerHTML = `<div>${day}</div>`;
+                if (schedules[dateString]) {
+                    dayElement.innerHTML += `<small>📅 ${schedules[dateString].length} events</small>`;
+                }
+                dayElement.onclick = () => selectDate(dateString);
+            }
+            calendar.appendChild(dayElement);
+        }
+    }
+
+    // 날짜 선택
+    function selectDate(dateString) {
+        selectedDate = dateString;
+        document.getElementById('selectedDateDisplay').innerText = dateString;
+        displaySchedules();
+        displayCalendar();
+    }
+
+    // 선택한 날짜 일정 표시
+    function displaySchedules() {
+        const scheduleList = document.getElementById('scheduleList');
+        scheduleList.innerHTML = '';
+        if (schedules[selectedDate]) {
+            schedules[selectedDate].forEach((item, index) => {
+                const scheduleItem = document.createElement('div');
+                scheduleItem.className = 'schedule-item';
+                scheduleItem.innerHTML = `${item} <button onclick="removeSchedule(${index})">Delete</button>`;
+                scheduleList.appendChild(scheduleItem);
+            });
+        }
+    }
+
+    // 일정 추가
+    function addSchedule() {
+        const scheduleText = document.getElementById('scheduleInput').value.trim();
+        const scheduleDate = picker.toString();
+        
+        if (scheduleDate && scheduleText) {
+            if (!schedules[scheduleDate]) schedules[scheduleDate] = [];
+            schedules[scheduleDate].push(scheduleText);
+            document.getElementById('scheduleInput').value = '';
+            if (scheduleDate === selectedDate) displaySchedules();
+            displayCalendar();
+            saveSchedules();
+        }
+    }
+
+    // 일정 삭제
+    function removeSchedule(index) {
+        schedules[selectedDate].splice(index, 1);
+        if (schedules[selectedDate].length === 0) delete schedules[selectedDate];
+        displayCalendar();
+        displaySchedules();
+        saveSchedules();
+    }
+
+    // 일정 저장
+    async function saveSchedules() {
+        await fetch('/api/schedules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(schedules, null, 2)
+        });
+    }
+
+    // 월 변경
+    function changeMonth(change) {
+        currentDate.setMonth(currentDate.getMonth() + change);
+        displayCalendar();
+    }
+
+    // 날짜 포맷을 YYYY-MM-DD로 설정, +1 해줌
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        date.setDate(date.getDate()+1)
+        return date.toISOString().split('T')[0];
+    }   
+
+
+    loadSchedules();
+</script>
+
+</body>
+</html>
