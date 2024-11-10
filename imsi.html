@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카카오톡 메시지 보내기</title>
+    <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
+</head>
+<body>
+    <button id="sendMessageBtn">카카오톡 메시지 보내기</button>
+
+    <script>
+        // 카카오 SDK 초기화
+        Kakao.init('5aadd5712152d3218c8a2294125235a8'); // 여기서 'YOUR_APP_KEY'는 카카오 개발자에서 받은 앱 키로 바꿔야 합니다.
+
+        document.getElementById('sendMessageBtn').addEventListener('click', function() {
+            Kakao.Link.sendDefault({
+                objectType: 'text',
+                text: '이 메시지는 카카오톡을 통해 보내는 메시지입니다.',
+                link: {
+                    mobileWebUrl: 'https://developers.kakao.com',
+                    webUrl: 'https://developers.kakao.com'
+                },
+                buttonTitle: '카카오 개발자 사이트로 이동'
+            });
+        });
+    </script>
+</body>
+</html>
