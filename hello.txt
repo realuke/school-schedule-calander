@@ -1,5 +1,1 @@
-<<<<<<< HEAD
-codeaadsfs
-=======
-hoho
->>>>>>> 1f80a40e93874d72fbfc4e5b05a0aec80f950c56
+B변경 내용
